@@ -1,0 +1,111 @@
+.audio-recorder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.recorder-container {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 600px;
+  width: 90%;
+}
+
+.record-button {
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  border: none;
+  border-radius: 2rem;
+  background-color: #4CAF50;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.record-button:hover {
+  background-color: #45a049;
+  transform: scale(1.05);
+}
+
+.record-button.recording {
+  background-color: #f44336;
+  animation: pulse 1.5s infinite;
+}
+
+.record-button.recording:hover {
+  background-color: #da190b;
+}
+
+.transcription {
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.transcription h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.transcription p {
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+.saved-questions {
+  margin-top: 2rem;
+  text-align: left;
+}
+
+.saved-questions h3 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.saved-questions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.saved-questions li {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 0.5rem;
+  border-left: 4px solid #4CAF50;
+}
+
+.saved-questions .question-text {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.saved-questions .timestamp {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+} 
