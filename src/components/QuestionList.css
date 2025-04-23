@@ -54,4 +54,37 @@
   margin: 0;
   color: #444;
   font-style: italic;
+}
+
+.audio-player {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.play-button {
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.play-button:hover {
+  background: #357abd;
+}
+
+.play-button.playing {
+  background: #e24a4a;
+}
+
+.play-button.playing:hover {
+  background: #bd3535;
 } 

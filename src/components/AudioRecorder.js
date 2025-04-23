@@ -8,7 +8,25 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
   const [transcription, setTranscription] = useState('');
   const [personalitySettings, setPersonalitySettings] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentAudio, setCurrentAudio] = useState(null);
   const recognitionRef = useRef(null);
+  const audioRef = useRef(null);
+
+  const playAudio = (base64Audio) => {
+    if (base64Audio) {
+      const audioSrc = `data:audio/mpeg;base64,${base64Audio}`;
+      if (audioRef.current) {
+        audioRef.current.src = audioSrc;
+        audioRef.current.play();
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (currentAudio) {
+      playAudio(currentAudio);
+    }
+  }, [currentAudio]);
 
   // Fetch personality settings when component mounts
   useEffect(() => {
@@ -83,7 +101,8 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
       // Update the questions list with the new record including the response
       const updatedRecord = {
         ...newRecord,
-        response: data.response || 'No response received'
+        response: data.response || 'No response received',
+        audio: data.audio || null
       };
       
       console.log('Updating questions with:', updatedRecord);
@@ -91,6 +110,11 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
         const currentQuestions = Array.isArray(prevQuestions) ? prevQuestions : [];
         return [updatedRecord, ...currentQuestions];
       });
+
+      // Play the audio if available
+      if (data.audio) {
+        setCurrentAudio(data.audio);
+      }
     } catch (error) {
       console.error('Error saving record:', error);
     }
@@ -151,6 +175,7 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
 
   return (
     <div className="audio-recorder">
+      <audio ref={audioRef} />
       {isLoading ? (
         <p>Loading personality settings...</p>
       ) : !personalitySettings ? (
@@ -172,12 +197,12 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
                 <p>{transcription}</p>
               </div>
             )}
-            {savedQuestions.length > 0 && (
+            {savedQuestions && savedQuestions.length > 0 && (
               <div className="saved-questions">
                 <h3>Previous Questions:</h3>
                 <ul>
                   {savedQuestions.map((record) => (
-                    <li key={record.id}>
+                    <li key={record.id || record.timestamp}>
                       <p className="question-text">{record.text}</p>
                       <span className="timestamp">{formatTimestamp(record.timestamp)}</span>
                     </li>

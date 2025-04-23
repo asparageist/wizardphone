@@ -167,6 +167,59 @@ const callOpenAI = async (messages) => {
   }
 };
 
+// Function to convert text to speech using ElevenLabs
+async function textToSpeech(text) {
+  console.log('Starting textToSpeech function');
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  console.log('API Key exists:', !!apiKey);
+  
+  if (!apiKey) {
+    throw new Error('ELEVENLABS_API_KEY is not set');
+  }
+
+  const requestBody = {
+    text,
+    model_id: "eleven_monolingual_v1",
+    voice_settings: {
+      stability: 0.5,
+      similarity_boost: 0.5
+    }
+  };
+
+  console.log('Sending request to ElevenLabs:', JSON.stringify(requestBody, null, 2));
+
+  try {
+    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/V33LkP9pVLdcjeB2y5Na', {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': apiKey
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('ElevenLabs API error:', errorText);
+      throw new Error(`ElevenLabs API error: ${response.status} ${errorText}`);
+    }
+
+    const audioBuffer = await response.arrayBuffer();
+    console.log('Audio buffer size:', audioBuffer.byteLength);
+    
+    // Convert ArrayBuffer to base64
+    const base64Audio = Buffer.from(audioBuffer).toString('base64');
+    return base64Audio;
+  } catch (error) {
+    console.error('Error in textToSpeech:', error);
+    throw error;
+  }
+}
+
 // Initialize the data directory and files
 const initializeApp = async () => {
   try {
@@ -187,22 +240,22 @@ app.post('/api/records', async (req, res) => {
   try {
     console.log('Received request body:', JSON.stringify(req.body, null, 2));
     
-    const { text, context } = req.body;
-    if (!text || !context) {
-      throw new Error('Missing required fields: text and context');
+    if (!req.body.text || !req.body.context) {
+      throw new Error('Missing required fields: text and context are required');
     }
 
-    const formattedConversation = formatConversationForOpenAI(text, context);
+    const formattedConversation = formatConversationForOpenAI(req.body.text, req.body.context);
     console.log('Formatted conversation for OpenAI:', JSON.stringify(formattedConversation, null, 2));
 
-    const aiResponse = await callOpenAI(formattedConversation);
-    console.log('Received AI response:', aiResponse);
+    const openaiResponse = await callOpenAI(formattedConversation);
+    console.log('OpenAI response:', openaiResponse);
 
+    const base64Audio = await textToSpeech(openaiResponse);
+    
     const record = {
-      text,
-      timestamp: new Date().toISOString(),
-      context,
-      response: aiResponse
+      ...req.body,
+      response: openaiResponse,
+      audio: base64Audio
     };
 
     const records = await readRecords();
@@ -212,11 +265,8 @@ app.post('/api/records', async (req, res) => {
     console.log('Record saved successfully:', record);
     res.json(record);
   } catch (error) {
-    console.error('Error processing record:', error);
-    res.status(500).json({ 
-      error: 'Failed to process record', 
-      details: error.message 
-    });
+    console.error('Error in POST /api/records:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -252,6 +302,28 @@ app.post('/api/settings', async (req, res) => {
   } catch (error) {
     console.error('Error saving settings:', error);
     res.status(500).json({ error: 'Failed to save settings' });
+  }
+});
+
+// Add endpoint to serve audio files
+app.get('/api/audio/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const audioPath = path.join(dataDir, filename);
+    
+    // Check if file exists
+    await fs.access(audioPath);
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    
+    // Stream the audio file
+    const audioStream = await fs.readFile(audioPath);
+    res.send(audioStream);
+  } catch (error) {
+    console.error('Error serving audio file:', error);
+    res.status(404).json({ error: 'Audio file not found' });
   }
 });
 
