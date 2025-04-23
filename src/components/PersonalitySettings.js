@@ -5,8 +5,8 @@ const API_URL = 'http://localhost:3001/api';
 
 const PersonalitySettings = () => {
   const [settings, setSettings] = useState({
-    personality: 'a busy and frustrated wizard who is bored and annoyed by the user',
-    restrictions: 'Keep responses brief and terse. Use swear words and sarcasm. If there are repeated questions, lose your temper.'
+    personality: 'a busy and frustrated cybersage who is bored and annoyed by the user',
+    restrictions: 'Keep responses brief and terse. Use swear words and sarcasm. If there are repeated questions, lose your temper. also, if a question is too vague or incomplete, ask for clarification.'
   });
 
   // Fetch settings when component mounts

@@ -9,6 +9,8 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
   const [personalitySettings, setPersonalitySettings] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentAudio, setCurrentAudio] = useState(null);
+  const [isThinking, setIsThinking] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
 
@@ -18,6 +20,7 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
       if (audioRef.current) {
         audioRef.current.src = audioSrc;
         audioRef.current.play();
+        setIsSpeaking(true);
       }
     }
   };
@@ -27,6 +30,14 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
       playAudio(currentAudio);
     }
   }, [currentAudio]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.onended = () => {
+        setIsSpeaking(false);
+      };
+    }
+  }, []);
 
   // Fetch personality settings when component mounts
   useEffect(() => {
@@ -61,6 +72,7 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
     }
 
     try {
+      setIsThinking(true);
       const timestamp = new Date().toISOString();
       const newRecord = {
         text,
@@ -74,8 +86,6 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
           })) : []
         }
       };
-
-      console.log('Sending record to backend:', JSON.stringify(newRecord, null, 2));
 
       const response = await fetch(`${API_URL}/records`, {
         method: 'POST',
@@ -92,43 +102,35 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
       }
 
       const data = await response.json();
-      console.log('Backend response:', data);
       
-      if (!data.response) {
-        console.warn('No response received from backend');
-      }
-
-      // Update the questions list with the new record including the response
       const updatedRecord = {
         ...newRecord,
         response: data.response || 'No response received',
         audio: data.audio || null
       };
       
-      console.log('Updating questions with:', updatedRecord);
       setSavedQuestions(prevQuestions => {
         const currentQuestions = Array.isArray(prevQuestions) ? prevQuestions : [];
         return [updatedRecord, ...currentQuestions];
       });
 
-      // Play the audio if available
       if (data.audio) {
         setCurrentAudio(data.audio);
       }
     } catch (error) {
       console.error('Error saving record:', error);
+    } finally {
+      setIsThinking(false);
     }
   };
 
   const startRecording = () => {
     try {
-      // Check if browser supports speech recognition
       if (!('webkitSpeechRecognition' in window)) {
         console.error('Speech recognition not supported in this browser');
         return;
       }
 
-      // Initialize speech recognition
       const recognition = new window.webkitSpeechRecognition();
       recognitionRef.current = recognition;
 
@@ -140,7 +142,6 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
           .map(result => result[0].transcript)
           .join('');
         
-        console.log('Transcription:', transcript);
         setTranscription(transcript);
       };
 
@@ -149,7 +150,6 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
       };
 
       recognition.start();
-      console.log('Speech recognition started');
       setIsRecording(true);
     } catch (error) {
       console.error('Error starting speech recognition:', error);
@@ -159,59 +159,43 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
   const stopRecording = async () => {
     if (recognitionRef.current && isRecording) {
       recognitionRef.current.stop();
-      console.log('Speech recognition stopped');
       setIsRecording(false);
       
-      // Save the final transcription when recording stops
       if (transcription) {
         await saveTranscription(transcription);
       }
     }
   };
 
-  const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
+  const getButtonState = () => {
+    if (isSpeaking) return 'speaking';
+    if (isThinking) return 'thinking';
+    if (isRecording) return 'recording';
+    return 'waiting';
   };
 
   return (
     <div className="audio-recorder">
       <audio ref={audioRef} />
       {isLoading ? (
-        <p>Loading personality settings...</p>
+        <div className="loading-state">
+          <div className="button-placeholder waiting" />
+        </div>
       ) : !personalitySettings ? (
-        <p>Error loading personality settings. Please try refreshing the page.</p>
+        <div className="error-state">
+          <p>Error loading personality settings. Please try refreshing the page.</p>
+        </div>
       ) : (
-        <>
-          <div className="recorder-container">
-            <button
-              className={`record-button ${isRecording ? 'recording' : ''}`}
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onMouseLeave={stopRecording}
-            >
-              {isRecording ? 'Recording...' : 'Hold to Record'}
-            </button>
-            {transcription && (
-              <div className="transcription">
-                <h3>Your Question:</h3>
-                <p>{transcription}</p>
-              </div>
-            )}
-            {savedQuestions && savedQuestions.length > 0 && (
-              <div className="saved-questions">
-                <h3>Previous Questions:</h3>
-                <ul>
-                  {savedQuestions.map((record) => (
-                    <li key={record.id || record.timestamp}>
-                      <p className="question-text">{record.text}</p>
-                      <span className="timestamp">{formatTimestamp(record.timestamp)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </>
+        <div className="recorder-container">
+          <button
+            className={`record-button ${getButtonState()}`}
+            onMouseDown={startRecording}
+            onMouseUp={stopRecording}
+            onMouseLeave={stopRecording}
+            onTouchStart={startRecording}
+            onTouchEnd={stopRecording}
+          />
+        </div>
       )}
     </div>
   );

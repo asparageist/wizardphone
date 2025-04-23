@@ -189,7 +189,7 @@ async function textToSpeech(text) {
   console.log('Sending request to ElevenLabs:', JSON.stringify(requestBody, null, 2));
 
   try {
-    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/V33LkP9pVLdcjeB2y5Na', {
+    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/vJnOqGC8uWYZxHYiEVfu', {
       method: 'POST',
       headers: {
         'Accept': 'audio/mpeg',
