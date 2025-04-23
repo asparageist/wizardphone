@@ -11,6 +11,8 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
   const [currentAudio, setCurrentAudio] = useState(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [currentResponse, setCurrentResponse] = useState('');
+  const [lastRecordTimestamp, setLastRecordTimestamp] = useState(null);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
 
@@ -44,6 +46,39 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
     fetchPersonalitySettings();
   }, []);
 
+  // Check for data purge
+  useEffect(() => {
+    const checkRecords = async () => {
+      try {
+        const response = await fetch(`${API_URL}/records`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch records');
+        }
+        const data = await response.json();
+        
+        // If we have saved questions but backend has none, clear the frontend state
+        if (savedQuestions.length > 0 && (!data || data.length === 0)) {
+          console.log('Backend data purged, clearing frontend state');
+          setSavedQuestions([]);
+          setTranscription('');
+          setCurrentResponse('');
+          setCurrentAudio(null);
+        }
+        
+        // Update last record timestamp
+        if (data && data.length > 0) {
+          setLastRecordTimestamp(data[0].timestamp);
+        }
+      } catch (error) {
+        console.error('Error checking records:', error);
+      }
+    };
+
+    // Check every 5 seconds
+    const interval = setInterval(checkRecords, 5000);
+    return () => clearInterval(interval);
+  }, [savedQuestions]);
+
   const fetchPersonalitySettings = async () => {
     try {
       const response = await fetch(`${API_URL}/settings`);
@@ -74,16 +109,29 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
     try {
       setIsThinking(true);
       const timestamp = new Date().toISOString();
+      
+      // Check if backend has been purged
+      const recordsResponse = await fetch(`${API_URL}/records`);
+      if (!recordsResponse.ok) {
+        throw new Error('Failed to fetch records');
+      }
+      const backendRecords = await recordsResponse.json();
+      
+      // Only include conversation history if backend has records
+      const conversationHistory = backendRecords && backendRecords.length > 0
+        ? savedQuestions.map(q => ({
+            text: q.text,
+            timestamp: q.timestamp
+          }))
+        : [];
+
       const newRecord = {
         text,
         timestamp,
         id: Date.now(),
         context: {
           personality: personalitySettings,
-          conversationHistory: Array.isArray(savedQuestions) ? savedQuestions.map(q => ({
-            text: q.text,
-            timestamp: q.timestamp
-          })) : []
+          conversationHistory
         }
       };
 
@@ -117,6 +165,7 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
       if (data.audio) {
         setCurrentAudio(data.audio);
       }
+      setCurrentResponse(data.response || 'No response received');
     } catch (error) {
       console.error('Error saving record:', error);
     } finally {
@@ -187,6 +236,11 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
         </div>
       ) : (
         <div className="recorder-container">
+          {transcription && (
+            <div className="question-overlay">
+              {transcription}
+            </div>
+          )}
           <button
             className={`record-button ${getButtonState()}`}
             onMouseDown={startRecording}
@@ -195,6 +249,11 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
             onTouchStart={startRecording}
             onTouchEnd={stopRecording}
           />
+          {currentResponse && (
+            <div className="response-overlay">
+              {currentResponse}
+            </div>
+          )}
         </div>
       )}
     </div>

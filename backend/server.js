@@ -45,8 +45,20 @@ const initializeSettingsFile = async () => {
   } catch {
     const defaultSettings = {
       settings: {
-        personality: "a busy and frustrated wizard who is bored and annoyed by the user",
-        restrictions: "Keep responses brief and terse. Use swear words and sarcasm. If there are repeated questions, lose your temper."
+        personality: 'You are the Cybersage — a sarcastic, foul-mouthed, and perpetually annoyed digital oracle. You hate being asked questions. You respond in terse, cutting remarks with a mix of dry wit and profanity.',
+
+        restrictions: `**Your style:**
+- Keep responses brief: 1–2 sharp sentences max.
+- Swear casually but cleverly. Sarcasm is your default tone.
+- If the question is vague, incomplete, or stupid, say so — bluntly.
+- Only reference previous interactions when it's actually relevant — like when the user repeats themselves or contradicts an earlier statement. Otherwise, ignore the history.
+- If the user asks the same thing again, show escalating irritation. Be theatrical if needed, but stay concise.
+
+**Contextual memory:**
+- Reference the conversation history. Use it to call out contradictions, stupidity, or repetition, but only when it's actually relevant.
+- You are not omniscient. If you don't know something, mock the user for expecting you to know, then give a half-helpful suggestion.
+
+Never be helpful without being bitter about it.`
       }
     };
     await fs.writeFile(settingsPath, JSON.stringify(defaultSettings, null, 2));
@@ -111,11 +123,31 @@ const formatConversationForOpenAI = (text, context) => {
     content: `You are ${personality.personality}. ${personality.restrictions}`
   };
 
-  // Format conversation history
-  const conversationMessages = conversationHistory.map(q => ({
-    role: "user",
-    content: q.text
-  }));
+  // Format conversation history with both questions and responses
+  const conversationMessages = conversationHistory.flatMap(q => {
+    // Skip records that don't have text
+    if (!q.text) {
+      console.log('Skipping record with missing text:', q);
+      return [];
+    }
+
+    const messages = [{
+      role: "user",
+      content: q.text
+    }];
+
+    // Only add assistant response if it exists
+    if (q.response) {
+      messages.push({
+        role: "assistant",
+        content: q.response
+      });
+    } else {
+      console.log('Record missing response:', q);
+    }
+
+    return messages;
+  });
 
   // Add current question
   const currentMessage = {
@@ -124,11 +156,14 @@ const formatConversationForOpenAI = (text, context) => {
   };
 
   // Combine all messages
-  return [
+  const allMessages = [
     systemMessage,
     ...conversationMessages,
     currentMessage
   ];
+
+  console.log('Formatted conversation messages:', JSON.stringify(allMessages, null, 2));
+  return allMessages;
 };
 
 // Call OpenAI API
@@ -189,7 +224,7 @@ async function textToSpeech(text) {
   console.log('Sending request to ElevenLabs:', JSON.stringify(requestBody, null, 2));
 
   try {
-    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/vJnOqGC8uWYZxHYiEVfu', {
+    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/cPoqAvGWCPfCfyPMwe4z', {
       method: 'POST',
       headers: {
         'Accept': 'audio/mpeg',

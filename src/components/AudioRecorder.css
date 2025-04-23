@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
+
 .audio-recorder {
   position: fixed;
   bottom: 0;
@@ -10,16 +12,19 @@
   align-items: center;
   background-color: #000;
   color: #fff;
+  font-family: "Silkscreen", sans-serif;
 }
 
 .recorder-container {
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 0;
   margin: 0;
+  position: relative;
 }
 
 .record-button {
@@ -35,6 +40,48 @@
   background-repeat: no-repeat;
   padding: 0;
   margin: 0;
+}
+
+.question-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 1rem;
+  color: #fff;
+  font-size: 2rem;
+  text-shadow: 
+    -4px -4px 0 #19005e,
+    4px -4px 0 #19005e,
+    -4px 4px 0 #19005e,
+    4px 4px 0 #19005e;
+  z-index: 1;
+  max-width: 90%;
+  margin: 0 auto;
+  font-family: "Silkscreen", sans-serif;
+  font-weight: 600;
+}
+
+.response-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 1rem;
+  color: #fff;
+  font-size: 2rem;
+  text-shadow: 
+    -4px -4px 0 #19005e,
+    4px -4px 0 #19005e,
+    -4px 4px 0 #19005e,
+    4px 4px 0 #19005e;
+  z-index: 1;
+  max-width: 90%;
+  margin: 0 auto;
+  font-family: "Silkscreen", sans-serif;
+  font-weight: 600;
 }
 
 /* Button states */
@@ -68,6 +115,8 @@
   color: #ff4444;
   text-align: center;
   padding: 20px;
+  font-family: "Silkscreen", sans-serif;
+  font-weight: 400;
 }
 
 /* Mobile optimizations */
