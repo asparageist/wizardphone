@@ -23,7 +23,11 @@ const dataDir = path.join(__dirname, 'data');
 const recordsPath = path.join(dataDir, 'records.json');
 const settingsPath = path.join(dataDir, 'settings.json');
 
-// Health check endpoint
+// Health check endpoints
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy' });
 });
