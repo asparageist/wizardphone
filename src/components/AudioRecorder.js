@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './AudioRecorder.css';
-
-const API_URL = 'http://localhost:3001/api';
+import config from '../config';
 
 const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -43,14 +42,14 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
 
   // Fetch personality settings when component mounts
   useEffect(() => {
-    fetchPersonalitySettings();
+    fetchSettings();
   }, []);
 
   // Check for data purge
   useEffect(() => {
     const checkRecords = async () => {
       try {
-        const response = await fetch(`${API_URL}/records`);
+        const response = await fetch(`${config.API_URL}/records`);
         if (!response.ok) {
           throw new Error('Failed to fetch records');
         }
@@ -79,24 +78,13 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
     return () => clearInterval(interval);
   }, [savedQuestions]);
 
-  const fetchPersonalitySettings = async () => {
+  const fetchSettings = async () => {
     try {
-      const response = await fetch(`${API_URL}/settings`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch settings');
-      }
+      const response = await fetch(`${config.API_URL}/settings`);
       const data = await response.json();
-      console.log('Received settings:', data);
-      if (data.settings) {
-        setPersonalitySettings(data.settings);
-      } else {
-        console.error('Settings data is missing:', data);
-        throw new Error('Invalid settings format');
-      }
+      setPersonalitySettings(data.settings);
     } catch (error) {
-      console.error('Error fetching personality settings:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching settings:', error);
     }
   };
 
@@ -110,32 +98,23 @@ const AudioRecorder = ({ savedQuestions = [], setSavedQuestions }) => {
       setIsThinking(true);
       const timestamp = new Date().toISOString();
       
-      // Check if backend has been purged
-      const recordsResponse = await fetch(`${API_URL}/records`);
-      if (!recordsResponse.ok) {
-        throw new Error('Failed to fetch records');
-      }
+      // First check if backend has any records
+      const recordsResponse = await fetch(`${config.API_URL}/records`);
       const backendRecords = await recordsResponse.json();
       
-      // Only include conversation history if backend has records
-      const conversationHistory = backendRecords && backendRecords.length > 0
-        ? savedQuestions.map(q => ({
-            text: q.text,
-            timestamp: q.timestamp
-          }))
-        : [];
+      const context = {
+        personality: personalitySettings,
+        conversationHistory: backendRecords.length > 0 ? backendRecords : []
+      };
 
       const newRecord = {
         text,
         timestamp,
         id: Date.now(),
-        context: {
-          personality: personalitySettings,
-          conversationHistory
-        }
+        context
       };
 
-      const response = await fetch(`${API_URL}/records`, {
+      const response = await fetch(`${config.API_URL}/records`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './PersonalitySettings.css';
+import config from '../config';
 
-const API_URL = 'http://localhost:3001/api';
-
-const PersonalitySettings = () => {
+const PersonalitySettings = ({ isOpen, onClose }) => {
   const [settings, setSettings] = useState({
     personality: 'You are the Cybersage — a sarcastic, foul-mouthed, and perpetually annoyed digital oracle. You hate being asked questions. You respond in terse, cutting remarks with a mix of dry wit and profanity.',
     restrictions: `**Your style:**
@@ -20,25 +19,21 @@ const PersonalitySettings = () => {
 Never be helpful without being bitter about it.`
   });
 
-  // Fetch settings when component mounts
   useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch(`${API_URL}/settings`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch settings');
-      }
-      const data = await response.json();
-      if (data.settings) {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(`${config.API_URL}/settings`);
+        const data = await response.json();
         setSettings(data.settings);
+      } catch (error) {
+        console.error('Error fetching settings:', error);
       }
-    } catch (error) {
-      console.error('Error fetching settings:', error);
+    };
+
+    if (isOpen) {
+      fetchSettings();
     }
-  };
+  }, [isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -48,10 +43,9 @@ Never be helpful without being bitter about it.`
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSave = async () => {
     try {
-      const response = await fetch(`${API_URL}/settings`, {
+      const response = await fetch(`${config.API_URL}/settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +66,7 @@ Never be helpful without being bitter about it.`
   return (
     <div className="personality-settings">
       <h2>AI Personality Settings</h2>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSave}>
         <div className="form-group">
           <label htmlFor="personality">Personality:</label>
           <textarea

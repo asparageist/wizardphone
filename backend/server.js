@@ -4,25 +4,29 @@ const cors = require('cors');
 const fs = require('fs').promises;
 const path = require('path');
 const fetch = require('node-fetch');
+const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
 
 // Paths to our files
-const recordsPath = path.join(__dirname, 'data', 'records.json');
-const settingsPath = path.join(__dirname, 'data', 'settings.json');
+const dataDir = path.join(__dirname, 'data');
+const recordsPath = path.join(dataDir, 'records.json');
+const settingsPath = path.join(dataDir, 'settings.json');
 
 // Ensure data directory exists
 const ensureDataDir = async () => {
-  const dataDir = path.join(__dirname, 'data');
   try {
     await fs.access(dataDir);
   } catch {
-    await fs.mkdir(dataDir);
+    await fs.mkdir(dataDir, { recursive: true });
   }
 };
 
@@ -255,19 +259,33 @@ async function textToSpeech(text) {
   }
 }
 
-// Initialize the data directory and files
+// Start server
 const initializeApp = async () => {
   try {
     await ensureDataDir();
     await initializeRecordsFile();
     await initializeSettingsFile();
-    console.log('App initialization complete');
+
+    // Test database connection
+    try {
+      const connection = await db.getConnection();
+      console.log('Database connection successful');
+      connection.release();
+    } catch (error) {
+      console.error('Database connection failed:', error);
+      process.exit(1);
+    }
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`CORS configured for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+    });
   } catch (error) {
-    console.error('Error during app initialization:', error);
+    console.error('Failed to initialize app:', error);
+    process.exit(1);
   }
 };
 
-// Call initialization
 initializeApp();
 
 // Routes
@@ -360,8 +378,4 @@ app.get('/api/audio/:filename', async (req, res) => {
     console.error('Error serving audio file:', error);
     res.status(404).json({ error: 'Audio file not found' });
   }
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
 }); 
