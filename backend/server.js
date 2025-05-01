@@ -4,6 +4,7 @@ const cors = require('cors');
 const fs = require('fs').promises;
 const path = require('path');
 const fetch = require('node-fetch');
+const mysql = require('mysql2/promise');
 const db = require('./db');
 
 const app = express();
@@ -12,6 +13,7 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  methods: ['GET', 'POST'],
   credentials: true
 }));
 app.use(express.json());
@@ -20,6 +22,11 @@ app.use(express.json());
 const dataDir = path.join(__dirname, 'data');
 const recordsPath = path.join(dataDir, 'records.json');
 const settingsPath = path.join(dataDir, 'settings.json');
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
 
 // Ensure data directory exists
 const ensureDataDir = async () => {
@@ -259,23 +266,55 @@ async function textToSpeech(text) {
   }
 }
 
-// Start server
+// Database connection
+const initDb = async () => {
+  try {
+    const connection = await mysql.createPool({
+      host: process.env.MYSQLHOST,
+      port: process.env.MYSQLPORT,
+      user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD,
+      database: process.env.MYSQLDATABASE,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
+    });
+    
+    console.log('Successfully connected to MySQL database');
+    return connection;
+  } catch (error) {
+    console.error('Error connecting to MySQL database:', error);
+    throw error;
+  }
+};
+
+// Initialize app
 const initializeApp = async () => {
   try {
-    await ensureDataDir();
-    await initializeRecordsFile();
-    await initializeSettingsFile();
+    // Initialize database
+    const db = await initDb();
+    
+    // Create tables if they don't exist
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS records (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        text TEXT NOT NULL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        response TEXT,
+        audio_path VARCHAR(255)
+      )
+    `);
 
-    // Test database connection
-    try {
-      const connection = await db.getConnection();
-      console.log('Database connection successful');
-      connection.release();
-    } catch (error) {
-      console.error('Database connection failed:', error);
-      process.exit(1);
-    }
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id INT PRIMARY KEY DEFAULT 1,
+        personality TEXT NOT NULL,
+        restrictions TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
 
+    // Start server
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`CORS configured for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
