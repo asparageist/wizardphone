@@ -5,7 +5,19 @@ const fs = require('fs').promises;
 const path = require('path');
 const fetch = require('node-fetch');
 const mysql = require('mysql2/promise');
-const db = require('./db');
+
+console.log('Starting server initialization...');
+console.log('Environment:', {
+  NODE_ENV: process.env.NODE_ENV,
+  PORT: process.env.PORT,
+  MYSQL_HOST: process.env.MYSQLHOST,
+  MYSQL_PORT: process.env.MYSQLPORT,
+  MYSQL_DATABASE: process.env.MYSQLDATABASE,
+  HAS_MYSQL_USER: !!process.env.MYSQLUSER,
+  HAS_MYSQL_PASSWORD: !!process.env.MYSQLPASSWORD,
+  HAS_OPENAI_KEY: !!process.env.OPENAI_API_KEY,
+  HAS_ELEVENLABS_KEY: !!process.env.ELEVENLABS_API_KEY
+});
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,10 +37,12 @@ const settingsPath = path.join(dataDir, 'settings.json');
 
 // Health check endpoints
 app.get('/health', (req, res) => {
+  console.log('Health check requested at /health');
   res.json({ status: 'healthy' });
 });
 
 app.get('/api/health', (req, res) => {
+  console.log('Health check requested at /api/health');
   res.json({ status: 'healthy' });
 });
 
@@ -272,6 +286,7 @@ async function textToSpeech(text) {
 
 // Database connection
 const initDb = async () => {
+  console.log('Initializing database connection...');
   try {
     const connection = await mysql.createPool({
       host: process.env.MYSQLHOST,
@@ -294,11 +309,14 @@ const initDb = async () => {
 
 // Initialize app
 const initializeApp = async () => {
+  console.log('Starting application initialization...');
   try {
     // Initialize database
     const db = await initDb();
+    console.log('Database initialized successfully');
     
     // Create tables if they don't exist
+    console.log('Creating tables if they don\'t exist...');
     await db.query(`
       CREATE TABLE IF NOT EXISTS records (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -308,6 +326,7 @@ const initializeApp = async () => {
         audio_path VARCHAR(255)
       )
     `);
+    console.log('Records table checked/created');
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS settings (
@@ -317,6 +336,7 @@ const initializeApp = async () => {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+    console.log('Settings table checked/created');
 
     // Start server
     app.listen(PORT, () => {
@@ -325,11 +345,31 @@ const initializeApp = async () => {
     });
   } catch (error) {
     console.error('Failed to initialize app:', error);
-    process.exit(1);
+    // Don't exit immediately, give time for logs to be captured
+    setTimeout(() => process.exit(1), 1000);
   }
 };
 
-initializeApp();
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't exit immediately, give time for logs to be captured
+  setTimeout(() => process.exit(1), 1000);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit immediately, give time for logs to be captured
+  setTimeout(() => process.exit(1), 1000);
+});
+
+console.log('Calling initializeApp...');
+initializeApp().catch(error => {
+  console.error('Top level error in initializeApp:', error);
+  // Don't exit immediately, give time for logs to be captured
+  setTimeout(() => process.exit(1), 1000);
+});
 
 // Routes
 app.post('/api/records', async (req, res) => {
@@ -421,4 +461,6 @@ app.get('/api/audio/:filename', async (req, res) => {
     console.error('Error serving audio file:', error);
     res.status(404).json({ error: 'Audio file not found' });
   }
-}); 
+});
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001'; 
