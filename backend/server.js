@@ -296,13 +296,27 @@ const initDb = async () => {
       database: process.env.MYSQLDATABASE,
       waitForConnections: true,
       connectionLimit: 10,
-      queueLimit: 0
+      queueLimit: 0,
+      connectTimeout: 60000, // 60 seconds
+      acquireTimeout: 60000, // 60 seconds
+      timeout: 60000, // 60 seconds
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000 // 10 seconds
     });
     
+    // Test the connection
+    await connection.query('SELECT 1');
     console.log('Successfully connected to MySQL database');
     return connection;
   } catch (error) {
     console.error('Error connecting to MySQL database:', error);
+    console.error('Connection details:', {
+      host: process.env.MYSQLHOST,
+      port: process.env.MYSQLPORT,
+      database: process.env.MYSQLDATABASE,
+      user: process.env.MYSQLUSER ? '***' : undefined,
+      password: process.env.MYSQLPASSWORD ? '***' : undefined
+    });
     throw error;
   }
 };
@@ -310,43 +324,56 @@ const initDb = async () => {
 // Initialize app
 const initializeApp = async () => {
   console.log('Starting application initialization...');
-  try {
-    // Initialize database
-    const db = await initDb();
-    console.log('Database initialized successfully');
-    
-    // Create tables if they don't exist
-    console.log('Creating tables if they don\'t exist...');
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS records (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        text TEXT NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        response TEXT,
-        audio_path VARCHAR(255)
-      )
-    `);
-    console.log('Records table checked/created');
+  let db;
+  let retries = 5;
+  let retryDelay = 5000; // 5 seconds
 
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS settings (
-        id INT PRIMARY KEY DEFAULT 1,
-        personality TEXT NOT NULL,
-        restrictions TEXT,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('Settings table checked/created');
+  while (retries > 0) {
+    try {
+      // Initialize database
+      db = await initDb();
+      console.log('Database initialized successfully');
+      
+      // Create tables if they don't exist
+      console.log('Creating tables if they don\'t exist...');
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS records (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          text TEXT NOT NULL,
+          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+          response TEXT,
+          audio_path VARCHAR(255)
+        )
+      `);
+      console.log('Records table checked/created');
 
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`CORS configured for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
-    });
-  } catch (error) {
-    console.error('Failed to initialize app:', error);
-    // Don't exit immediately, give time for logs to be captured
-    setTimeout(() => process.exit(1), 1000);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS settings (
+          id INT PRIMARY KEY DEFAULT 1,
+          personality TEXT NOT NULL,
+          restrictions TEXT,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Settings table checked/created');
+
+      // Start server
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        console.log(`CORS configured for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+      });
+      return;
+    } catch (error) {
+      console.error(`Failed to initialize app (${retries} retries left):`, error);
+      retries--;
+      if (retries > 0) {
+        console.log(`Retrying in ${retryDelay/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        retryDelay *= 2; // Exponential backoff
+      } else {
+        throw error;
+      }
+    }
   }
 };
 
